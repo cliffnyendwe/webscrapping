@@ -1,0 +1,100 @@
+import pandas as pd
+import requests
+from bs4 import BeautifulSoup
+import datetime
+import time
+from datetime import date, timedelta
+import mysql.connector
+import pyodbc
+
+def makeURL(bettingkind,bettingdate):
+    #betting for two kinds of bets
+    if bettingkind== 'spreads':
+        bettingtypeinURL=""
+    elif bettingkind=='totals':
+        bettingtypeinURL='totals/'
+    url = 'https://www.234tempobet.com/sport1.html?_=1602056409083'+bettingtypeinURL+"?date="+bettingdate
+    return url
+
+def getTeams(soup):
+    firstlevels = soup.find_all('div', class_='el-div eventLine-team')
+
+
+    teams = []
+    previewURLS=[]
+    #all this includes the same kind of scraping, with different levels
+
+
+    for firstlevel in firstlevels:
+        #arbritary names
+        secondlevels= firstlevel.find_all('div',class_='eventLine-value')
+        for secondlevel in secondlevels:
+            thirdlevels= secondlevel.find_all('span',class_='team-name')
+            for thirdlevel in thirdlevels:
+                for element in thirdlevel:
+                    previewURLS.append(element['href'])
+                    for secondelement in element:
+                        teams.append(secondelement)
+    return teams
+
+
+def main():
+    #connection to database
+
+    insert_values = [("Tottenham-Aston Villa", 3, 12,  2, 3, 155, 33, 44, 11, 11, '', 'England - Premier League'),("Manchester - Arsenal", 5, 12,  2, 3, 155, 33, 44, 11, 11, '', 'England - Premier League')]
+    table_name = 'ProgramListesi'
+    col_FT02 = 'FT02'
+    col_MacAdi = 'MacAdi'
+    col_SiteID = 'SiteID'
+    col_FTHome = 'FTHome'
+    col_FTDRAW = 'FTDRAW'
+    col_FTAway = 'FTAway'
+    col_FT10 = 'FT10'
+    col_FT12 = 'FT12'
+    col_Ust = 'Ust'
+    col_Alt = 'Alt'
+    col_Tarih = 'Tarih'
+    col_LigAdi = 'LigAdi'
+    col_key = 'ID'
+
+
+    server = 'localhost'
+    database = 'Sbex'
+    username = 'milanoff'
+    password = 'Password1'
+    cnxn = pyodbc.connect('Driver={SQL Server};SERVER='+server+';DATABASE='+database+';UID='+username+';PWD='+ password)
+    cursor = cnxn.cursor()
+
+
+    cursor.execute(('MERGE INTO {table_name} as Target '
+                    'USING (SELECT * FROM '
+                    '(VALUES {vals}) '
+                    'AS s ({a}, {b}, {c}, {d}, {e}, {f}, {g},{m}, {h}, {i}, {j}, {k}) '
+                    ') AS Source '
+                    'ON Target.SiteID=Source.SiteID AND Target.MacAdi = Source.MacAdi AND Target.LigAdi = Source.LigAdi '
+                    'WHEN NOT MATCHED THEN '
+                    'INSERT ( {a}, {b}, {c}, {d}, {e}, {f}, {g},{m}, {h}, {i}, {j}, {k}) VALUES (Source.{a}, Source.{b},'
+                    'Source.{c}, Source.{d}, Source.{e},Source.{f},Source.{g},Source.{m},Source.{h},Source.{i},'
+                    'Source.{j},Source.{k} ) '
+                    'WHEN MATCHED THEN '
+                    'UPDATE SET {a}=Source.{a}, {b}=Source.{b}, {c}=Source.{c}, {d}=Source.{d}, {e}=Source.{e}, '
+                    '{f}=Source.{f},{g}=Source.{g}, {m}=Source.{m}, {h}=Source.{h}, {i}=Source.{i}, {j}=Source.{j}, '
+                    '{k}=Source.{k}; '
+                    .format(table_name=table_name,
+                            vals=','.join([str(i) for i in insert_values]),
+
+                            a=col_MacAdi,
+                            b=col_SiteID,
+                            c=col_FTHome,
+                            d=col_FTDRAW,
+                            e=col_FTAway,
+                            f=col_FT10,
+                            g=col_FT12,
+                            m=col_FT02,
+                            h=col_Ust,
+                            i=col_Alt,
+                            j=col_Tarih,
+                            k=col_LigAdi)))
+    cursor.commit()
+
+if __name__ == "__main__":
